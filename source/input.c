@@ -1243,8 +1243,12 @@ int input_get_guess(double *xguess,
        * Version 3: use attractor solution
        * */
       if (ba.scf_tuning_index == 0){
-        xguess[index_guess] = sqrt(3.0/ba.Omega0_scf);
-        dxdy[index_guess] = -0.5*sqrt(3.0)*pow(ba.Omega0_scf,-1.5);
+        // JVR MOD BEGIN: now, i'm assuming that scf_parameters[0] is V0
+        xguess[index_guess] = 1e-8; // JVR NOTE: in CLASS units, rho_crit is of order 1e-8 so this is a good initial guess as V0 ~ rho_crit
+        dxdy[index_guess] = 1.0f;
+        // xguess[index_guess] = sqrt(3.0/ba.Omega0_scf); // JVR NOTE: original code
+        // dxdy[index_guess] = -0.5*sqrt(3.0)*pow(ba.Omega0_scf,-1.5); // JVR NOTE: original code
+        // JVR MOD END
       }
       else{
         /* Default: take the passed value as xguess and set dxdy to 1. */

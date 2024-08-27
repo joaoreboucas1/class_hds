@@ -435,12 +435,20 @@ int background_functions(
   rho_m += pvecback[pba->index_bg_rho_b];
 
   /* cdm */
+  // JVR MOD BEGIN: CDM density change
   if (pba->has_cdm == _TRUE_) {
-    pvecback[pba->index_bg_rho_cdm] = pba->Omega0_cdm * pow(pba->H0,2) / pow(a,3);
+    phi = pvecback_B[pba->index_bi_phi_scf];
+    // JVR TODO: calculate rho_cdm_at_ai
+    // JVR NOTE: I think we only need a reference point ai
+    double a_i = 1e-8;
+    double phi_i = pba->scf_parameters[1];
+    double rho_cdm_at_ai = pba->Omega0_cdm * pow(pba->H0,2) * pow(a_i, 3.0);
+    pvecback[pba->index_bg_rho_cdm] = pba->Omega0_cdm * (phi/phi_i) * pow(pba->H0,2) / pow(a,3);
     rho_tot += pvecback[pba->index_bg_rho_cdm];
     p_tot += 0.;
     rho_m += pvecback[pba->index_bg_rho_cdm];
   }
+  // JVR MOD END: CDM density change
 
   /* idm */
   if (pba->has_idm == _TRUE_) {
@@ -2261,32 +2269,40 @@ int background_initial_conditions(
    * - is rho_ur all there is early on?
    */
   if (pba->has_scf == _TRUE_) {
-    scf_lambda = pba->scf_parameters[0];
-    if (pba->attractor_ic_scf == _TRUE_) {
-      pvecback_integration[pba->index_bi_phi_scf] = -1/scf_lambda*
-        log(rho_rad*4./(3*pow(scf_lambda,2)-12))*pba->phi_ini_scf;
-      if (3.*pow(scf_lambda,2)-12. < 0) {
-        /** - --> If there is no attractor solution for scf_lambda, assign some value. Otherwise would give a nan.*/
-        pvecback_integration[pba->index_bi_phi_scf] = 1./scf_lambda;//seems to do the work
-        if (pba->background_verbose > 0) {
-          printf(" No attractor IC for lambda = %.3e ! \n ",scf_lambda);
-        }
-      }
-      pvecback_integration[pba->index_bi_phi_prime_scf] = 2.*a*sqrt(V_scf(pba,pvecback_integration[pba->index_bi_phi_scf]))*pba->phi_prime_ini_scf;
-    }
-    else {
-      printf("Not using attractor initial conditions\n");
-      /** - --> If no attractor initial conditions are assigned, gets the provided ones. */
-      pvecback_integration[pba->index_bi_phi_scf] = pba->phi_ini_scf;
-      pvecback_integration[pba->index_bi_phi_prime_scf] = pba->phi_prime_ini_scf;
-    }
-    class_test(!isfinite(pvecback_integration[pba->index_bi_phi_scf]) ||
-               !isfinite(pvecback_integration[pba->index_bi_phi_scf]),
-               pba->error_message,
-               "initial phi = %e phi_prime = %e -> check initial conditions",
-               pvecback_integration[pba->index_bi_phi_scf],
-               pvecback_integration[pba->index_bi_phi_scf]);
+    // JVR MOD BEGIN: setting background initial conditions
+    // JVR NOTE: original code
+    // scf_lambda = pba->scf_parameters[0];
+    // if (pba->attractor_ic_scf == _TRUE_) {
+    //   pvecback_integration[pba->index_bi_phi_scf] = -1/scf_lambda*
+    //     log(rho_rad*4./(3*pow(scf_lambda,2)-12))*pba->phi_ini_scf;
+    //   if (3.*pow(scf_lambda,2)-12. < 0) {
+    //     /** - --> If there is no attractor solution for scf_lambda, assign some value. Otherwise would give a nan.*/
+    //     pvecback_integration[pba->index_bi_phi_scf] = 1./scf_lambda;//seems to do the work
+    //     if (pba->background_verbose > 0) {
+    //       printf(" No attractor IC for lambda = %.3e ! \n ",scf_lambda);
+    //     }
+    //   }
+    //   pvecback_integration[pba->index_bi_phi_prime_scf] = 2.*a*sqrt(V_scf(pba,pvecback_integration[pba->index_bi_phi_scf]))*pba->phi_prime_ini_scf;
+    // }
+    // else {
+    //   printf("Not using attractor initial conditions\n");
+    //   /** - --> If no attractor initial conditions are assigned, gets the provided ones. */
+    //   pvecback_integration[pba->index_bi_phi_scf] = pba->phi_ini_scf;
+    //   pvecback_integration[pba->index_bi_phi_prime_scf] = pba->phi_prime_ini_scf;
+    // }
+    // class_test(!isfinite(pvecback_integration[pba->index_bi_phi_scf]) ||
+    //            !isfinite(pvecback_integration[pba->index_bi_phi_scf]),
+    //            pba->error_message,
+    //            "initial phi = %e phi_prime = %e -> check initial conditions",
+    //            pvecback_integration[pba->index_bi_phi_scf],
+    //            pvecback_integration[pba->index_bi_phi_scf]);
+    // JVR NOTE: original code ends
+    // JVR NOTE: in class_test, you need to provide the FAILING condition, the condition you DON'T want to happen
+    class_test(pba->scf_parameters_size < 2, pba->error_message, "ERROR: must provide at least two scf parameters, but you provided %d.", pba->scf_parameters_size);
+    pvecback_integration[pba->index_bi_phi_scf] = pba->scf_parameters[1];
+    pvecback_integration[pba->index_bi_phi_prime_scf] = 0.0;
   }
+  // JVR MOD END
 
   /* Infer pvecback from pvecback_integration */
   class_call(background_functions(pba, a, pvecback_integration, normal_info, pvecback),
@@ -2650,12 +2666,16 @@ int background_derivs(
     dy[pba->index_bi_rho_fld] = -3.*(1.+pvecback[pba->index_bg_w_fld])*y[pba->index_bi_rho_fld];
   }
 
+  // JVR MOD BEGIN: Change scf evolution to interact with CDM
   if (pba->has_scf == _TRUE_) {
     /** - Scalar field equation: \f$ \phi'' + 2 a H \phi' + a^2 dV = 0 \f$  (note H is wrt cosmological time)
         written as \f$ d\phi/dlna = phi' / (aH) \f$ and \f$ d\phi'/dlna = -2*phi' - (a/H) dV \f$ */
-    dy[pba->index_bi_phi_scf] = y[pba->index_bi_phi_prime_scf]/a/H;
-    dy[pba->index_bi_phi_prime_scf] = - 2*y[pba->index_bi_phi_prime_scf] - a*dV_scf(pba,y[pba->index_bi_phi_scf])/H ;
+    double phi = y[pba->index_bi_phi_scf];
+    double phi_prime = y[pba->index_bi_phi_prime_scf];
+    dy[pba->index_bi_phi_scf] = phi_prime/a/H;
+    dy[pba->index_bi_phi_prime_scf] = - 2*phi_prime - a*dV_scf(pba, phi)/H - a*pvecback[pba->index_bg_rho_cdm]/phi/H;
   }
+  // JVR MOD END
 
   return _SUCCESS_;
 
@@ -2930,6 +2950,23 @@ double ddV_e_scf(struct background *pba,
   return pow(-scf_lambda,2)*V_e_scf(pba,phi);
 }
 
+// JVR MOD BEGIN: defining scalar field potential for Hybrid Dark Sector model
+double V_const_scf(struct background *pba, double phi)
+{
+  double scf_V0 = pba->scf_parameters[0];
+  return scf_V0;
+}
+
+double dV_const_scf(struct background *pba, double phi)
+{
+  return 0.0;
+}
+
+double ddV_const_scf(struct background *pba, double phi)
+{
+  return 0.0;
+}
+// JVR MOD END
 
 /** parameters and functions for the polynomial coefficient
  * \f$ V_p = (\phi - B)^\alpha + A \f$(polynomial bump)
@@ -2977,21 +3014,25 @@ double ddV_p_scf(
 
 /** Fianlly we can obtain the overall potential \f$ V = V_p*V_e \f$
  */
-
+// JVR MOD BEGIN: setting the scalar field potential to constant
 double V_scf(
              struct background *pba,
              double phi) {
-  return  V_e_scf(pba,phi)*V_p_scf(pba,phi);
+  // return  V_e_scf(pba,phi)*V_p_scf(pba,phi); JVR NOTE: this line is the original
+  return V_const_scf(pba, phi);
 }
 
 double dV_scf(
               struct background *pba,
               double phi) {
-  return dV_e_scf(pba,phi)*V_p_scf(pba,phi) + V_e_scf(pba,phi)*dV_p_scf(pba,phi);
+  // return dV_e_scf(pba,phi)*V_p_scf(pba,phi) + V_e_scf(pba,phi)*dV_p_scf(pba,phi); JVR NOTE: original
+  return dV_const_scf(pba, phi);
 }
 
 double ddV_scf(
                struct background *pba,
                double phi) {
-  return ddV_e_scf(pba,phi)*V_p_scf(pba,phi) + 2*dV_e_scf(pba,phi)*dV_p_scf(pba,phi) + V_e_scf(pba,phi)*ddV_p_scf(pba,phi);
+  // return ddV_e_scf(pba,phi)*V_p_scf(pba,phi) + 2*dV_e_scf(pba,phi)*dV_p_scf(pba,phi) + V_e_scf(pba,phi)*ddV_p_scf(pba,phi); JVR NOTE: original
+  return ddV_const_scf(pba, phi);
 }
+// JVR MOD END
