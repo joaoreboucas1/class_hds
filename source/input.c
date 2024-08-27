@@ -521,11 +521,13 @@ int input_shooting(struct file_content * pfc,
   int shooting_failed=_FALSE_;
 
   /* array of parameters passed by the user for which we need shooting (= target parameters) */
+  // JVR MOD BEGIN: add an additional target and unknown for rho_cdm_ai shooting
   char * const target_namestrings[] = {"100*theta_s",
                                        "theta_s_100",
                                        "Omega_dcdmdr",
                                        "omega_dcdmdr",
                                        "Omega_scf",
+                                       "Omega_scf",               // JVR MOD: new target to shoot for Omega_cdm
                                        "Omega_ini_dcdm",
                                        "omega_ini_dcdm"};
 
@@ -535,9 +537,9 @@ int input_shooting(struct file_content * pfc,
                                         "Omega_ini_dcdm",           /* unknown param for target 'Omega_dcdmd' */
                                         "omega_ini_dcdm",           /* unknown param for target 'omega_dcdmdr' */
                                         "scf_shooting_parameter",   /* unknown param for target 'Omega_scf' */
+                                        "rho_cdm_ai",               /* unknown param for target 'rho_cdm_ai' */
                                         "Omega_dcdmdr",             /* unknown param for target 'Omega_ini_dcdm' */
                                         "omega_dcdmdr"};             /* unknown param for target 'omega_ini_dcdm' */
-
   /* for each target, module up to which we need to run CLASS in order
      to compute the targetted quantities (not running the whole code
      each time to saves a lot of time) */
@@ -546,8 +548,10 @@ int input_shooting(struct file_content * pfc,
                                         cs_background,     /* computation stage for target 'Omega_dcdmdr' */
                                         cs_background,     /* computation stage for target 'omega_dcdmdr' */
                                         cs_background,     /* computation stage for target 'Omega_scf' */
+                                        cs_background,     /* computation stage for target 'rho_cdm_ai' */
                                         cs_background,     /* computation stage for target 'Omega_ini_dcdm' */
                                         cs_background};     /* computation stage for target 'omega_ini_dcdm' */
+  // JVR MOD END
 
   struct fzerofun_workspace fzw;
 
@@ -627,7 +631,7 @@ int input_shooting(struct file_content * pfc,
       /* store name of target parameter */
       fzw.target_name[counter] = index_target;
       /* store target value of target parameter */
-      fzw.target_value[counter] = param1;
+      fzw.target_value[counter] = param1; // JVR NOTE: the target value may be other value than the provided in the target variable
       fzw.unknown_parameters_index[counter]=pfc->size+counter;
       /* substitute the name of the target parameter with the name of the
          corresponding unknown parameter */
@@ -1245,7 +1249,7 @@ int input_get_guess(double *xguess,
       if (ba.scf_tuning_index == 0){
         // JVR MOD BEGIN: now, i'm assuming that scf_parameters[0] is V0
         xguess[index_guess] = 1e-8; // JVR NOTE: in CLASS units, rho_crit is of order 1e-8 so this is a good initial guess as V0 ~ rho_crit
-        dxdy[index_guess] = 1.0f;
+        dxdy[index_guess] = 1e-6;
         // xguess[index_guess] = sqrt(3.0/ba.Omega0_scf); // JVR NOTE: original code
         // dxdy[index_guess] = -0.5*sqrt(3.0)*pow(ba.Omega0_scf,-1.5); // JVR NOTE: original code
         // JVR MOD END
@@ -1256,6 +1260,13 @@ int input_get_guess(double *xguess,
         dxdy[index_guess] = 1.;
       }
       break;
+    // JVR MOD BEGIN: adding omega_cdm shooting
+    case Omega_cdm:
+      double a_i = 1e-8;
+      xguess[index_guess] = ba.Omega0_cdm * pow(ba.H0, 2) * pow(a_i, -3.0);
+      dxdy[index_guess] = 1.0;
+      break;
+    // JVR MOD END
     case omega_ini_dcdm:
       Omega0_dcdmdr = 1./(ba.h*ba.h);
     case Omega_ini_dcdm:
@@ -1482,6 +1493,11 @@ int input_try_unknown_parameters(double * unknown_parameter,
       /** In case scalar field is used to fill, pba->Omega0_scf is not equal to pfzw->target_value[i].*/
       output[i] = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_scf]/(ba.H0*ba.H0)-ba.Omega0_scf;
       break;
+    // JVR MOD BEGIN: Shooting for Omega_cdm
+    case Omega_cdm:
+      output[i] = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_cdm]/(ba.H0*ba.H0)-ba.Omega0_cdm;
+      break;
+    // JVR MOD END
     case Omega_ini_dcdm:
     case omega_ini_dcdm:
       rho_dcdm_today = ba.background_table[(ba.bt_size-1)*ba.bg_size+ba.index_bg_rho_dcdm];
@@ -3199,6 +3215,15 @@ int input_read_parameters_species(struct file_content * pfc,
      1) set each Omega0 and add to the total for each specified component.
      2) go through the components in order {lambda, fld, scf} and fill using
      first unspecified component. */
+
+  // JVR MOD: adding a value for the rho_cdm_ai
+  class_call(parser_read_double(pfc,"rho_cdm_ai",&pba->rho_cdm_ai,&flag1,errmsg),
+             errmsg,
+             errmsg);
+  class_test((flag1 == _TRUE_) && (flag3 == _FALSE_),
+             errmsg,
+             "You must provide both Omega_scf and rho_cdm_ai");
+  // JVR MOD END
 
   /* ** BUDGET EQUATION ** -> Add your species here */
   /* Compute Omega_tot */

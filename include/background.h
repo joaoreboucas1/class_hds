@@ -121,6 +121,9 @@ struct background
   int scf_tuning_index;    /**< index in scf_parameters used for tuning */
   double phi_ini_scf;      /**< \f$ \phi(t_0) \f$: scalar field initial value */
   double phi_prime_ini_scf;/**< \f$ d\phi(t_0)/d\tau \f$: scalar field initial derivative wrt conformal time */
+  // JVR MOD BEGIN: adding rho_cdm_at_ai
+  double rho_cdm_ai;
+  // JVR MOD END
   int scf_parameters_size; /**< size of scf_parameters */
   double varconst_alpha; /**< finestructure constant for varying fundamental constants */
   double varconst_me; /**< electron mass for varying fundamental constants */

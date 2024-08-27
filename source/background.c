@@ -437,13 +437,16 @@ int background_functions(
   /* cdm */
   // JVR MOD BEGIN: CDM density change
   if (pba->has_cdm == _TRUE_) {
-    phi = pvecback_B[pba->index_bi_phi_scf];
     // JVR TODO: calculate rho_cdm_at_ai
     // JVR NOTE: I think we only need a reference point ai
+    
+    phi = pvecback_B[pba->index_bi_phi_scf];
     double a_i = 1e-8;
     double phi_i = pba->scf_parameters[1];
-    double rho_cdm_at_ai = pba->Omega0_cdm * pow(pba->H0,2) * pow(a_i, 3.0);
-    pvecback[pba->index_bg_rho_cdm] = pba->Omega0_cdm * (phi/phi_i) * pow(pba->H0,2) / pow(a,3);
+    pvecback[pba->index_bg_rho_cdm] = pba->rho_cdm_ai * (phi/phi_i) * pow(a_i/a, 3.0);
+    class_test(pvecback[pba->index_bg_rho_cdm] <= 0.,
+             pba->error_message,
+             "CDM density is negative. The parameters are: phi = %e; rho_cdm_ai = %e", pba->rho_cdm_ai, phi);
     rho_tot += pvecback[pba->index_bg_rho_cdm];
     p_tot += 0.;
     rho_m += pvecback[pba->index_bg_rho_cdm];
@@ -487,6 +490,9 @@ int background_functions(
     pvecback[pba->index_bg_dV_scf] = dV_scf(pba,phi); // dV_scf(pba,phi); //potential' as function of phi
     pvecback[pba->index_bg_ddV_scf] = ddV_scf(pba,phi); // ddV_scf(pba,phi); //potential'' as function of phi
     pvecback[pba->index_bg_rho_scf] = (phi_prime*phi_prime/(2*a*a) + V_scf(pba,phi))/3.; // energy of the scalar field. The field units are set automatically by setting the initial conditions
+    class_test(pvecback[pba->index_bg_rho_scf] <= 0.,
+             pba->error_message,
+             "SCF density is negative. The parameters are: V0 = %e", pba->scf_parameters[0]);
     pvecback[pba->index_bg_p_scf] =(phi_prime*phi_prime/(2*a*a) - V_scf(pba,phi))/3.; // pressure of the scalar field
     rho_tot += pvecback[pba->index_bg_rho_scf];
     p_tot += pvecback[pba->index_bg_p_scf];
