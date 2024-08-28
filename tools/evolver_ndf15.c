@@ -1117,11 +1117,25 @@ int fzero_Newton(int (*func)(double *x,
        x_inout[0],x_inout[1],delx[0],delx[1]);*/
     class_call(func(x_inout, x_size, param, F0, error_message),
                error_message, error_message);
+    // JVR DEBUG:
+    #define JVR_DEBUG _FALSE_
+
+    if (JVR_DEBUG && x_size == 2) {
+    printf("V0 = %e, rho_cdm_ai = %e, omega_scf_err = %f, omega_cdm_err = %f\n",
+            x_inout[0], x_inout[1], F0[0], F0[1]);
+    }
+    // JVR DEBUG
+
     /**    printf("F0 = [%f, %f]\n",F0[0],F0[1]);*/
     *fevals = *fevals + 1;
     errf=0.0; //fvec and Jacobian matrix in fjac.
     for (i=1; i<=x_size; i++)
       errf += fabs(F0[i-1]); //Check function convergence.
+    
+    // JVR DEBUG: debugging the shooting
+    if (JVR_DEBUG) printf("Total error of %e, tolerance is %e\n", errf, tolF);
+    // JVR DEBUG
+    
     if (errf <= tolF){
       has_converged = _TRUE_;
       break;
@@ -1141,10 +1155,19 @@ int fzero_Newton(int (*func)(double *x,
         delx[i-1] *= -1;
       x_inout[i-1] += delx[i-1];
 
+
       /**      printf("x = [%f, %f], delx = [%e, %e]\n",
                x_inout[0],x_inout[1],delx[0],delx[1]);*/
       class_call(func(x_inout, x_size, param, Fdel, error_message),
                  error_message, error_message);
+      
+      // JVR DEBUG: debugging the shooting
+      if (JVR_DEBUG && x_size == 2) {
+      printf("V0 = %e, rho_cdm_ai = %e, omega_scf_err = %f, omega_cdm_err = %f\n",
+              x_inout[0], x_inout[1], Fdel[0], Fdel[1]);
+      }
+      // JVR DEBUG
+      
       /**      printf("F = [%f, %f]\n",Fdel[0],Fdel[1]);*/
       for (j=1; j<=x_size; j++)
         Fjac[j][i] = (Fdel[j-1]-F0[j-1])/delx[i-1];
