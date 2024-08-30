@@ -9125,9 +9125,22 @@ int perturbations_derivs(double tau,
     if (pba->has_cdm == _TRUE_) {
 
       /** - ----> newtonian gauge: cdm density and velocity */
+      // JVR MOD BEGIN: adding interaction term
+      double interaction_term = 0.0;
+      if (pba->has_scf == _TRUE_) {
+        const double rho_cdm   = pvecback[pba->index_bg_rho_cdm];
+        const double phi       = pvecback[pba->index_bg_phi_scf];
+        const double phi_prime = pvecback[pba->index_bg_phi_prime_scf];
+        const double Q         = -rho_cdm/phi;
+        const double delta_phi = y[pv->index_pt_phi_scf];
+        const double delta_phi_prime = y[pv->index_pt_phi_prime_scf];
+        const double delta_cdm = y[pv->index_pt_delta_cdm];
+        const double delta_Q = (rho_cdm*delta_phi - phi*delta_cdm)/phi/phi;
+        interaction_term = Q*phi_prime*delta_cdm/rho_cdm - Q*delta_phi_prime/rho_cdm - phi_prime*delta_Q/rho_cdm;
+      }
 
       if (ppt->gauge == newtonian) {
-        dy[pv->index_pt_delta_cdm] = -(y[pv->index_pt_theta_cdm]+metric_continuity); /* cdm density */
+        dy[pv->index_pt_delta_cdm] = -(y[pv->index_pt_theta_cdm]+metric_continuity) + interaction_term; /* cdm density */
 
         dy[pv->index_pt_theta_cdm] = - a_prime_over_a*y[pv->index_pt_theta_cdm] + metric_euler; /* cdm velocity */
       }
@@ -9135,9 +9148,10 @@ int perturbations_derivs(double tau,
       /** - ----> synchronous gauge: cdm density only (velocity set to zero by definition of the gauge) */
 
       if (ppt->gauge == synchronous) {
-        dy[pv->index_pt_delta_cdm] = -metric_continuity; /* cdm density */
+        dy[pv->index_pt_delta_cdm] = -metric_continuity + interaction_term; /* cdm density */
       }
     }
+    // JVR MOD END
 
     /** - ---> interacting dark radiation */
     if (pba->has_idr == _TRUE_){
@@ -9303,10 +9317,18 @@ int perturbations_derivs(double tau,
       dy[pv->index_pt_phi_scf] = y[pv->index_pt_phi_prime_scf];
 
       /** - ----> Klein Gordon equation */
-
+      // JVR MOD BEGIN: adding interaction term
+      const double rho_cdm   = pvecback[pba->index_bg_rho_cdm];
+      const double phi       = pvecback[pba->index_bg_phi_scf];
+      const double phi_prime = pvecback[pba->index_bg_phi_prime_scf];
+      const double delta_phi = y[pv->index_pt_phi_scf];
+      const double delta_cdm = y[pv->index_pt_delta_cdm];
+      const double delta_Q = (rho_cdm*delta_phi - phi*delta_cdm)/phi/phi;
       dy[pv->index_pt_phi_prime_scf] =  - 2.*a_prime_over_a*y[pv->index_pt_phi_prime_scf]
         - metric_continuity*pvecback[pba->index_bg_phi_prime_scf] //  metric_continuity = h'/2
-        - (k2 + a2*pvecback[pba->index_bg_ddV_scf])*y[pv->index_pt_phi_scf]; //checked
+        - (k2 + a2*pvecback[pba->index_bg_ddV_scf])*y[pv->index_pt_phi_scf] //checked
+        + a2*delta_Q; // Interaction term
+      // JVR MOD END
 
     }
 
