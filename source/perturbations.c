@@ -9136,7 +9136,8 @@ int perturbations_derivs(double tau,
         const double delta_phi = y[pv->index_pt_phi_scf];
         const double delta_phi_prime = y[pv->index_pt_phi_prime_scf];
         const double delta_Q = rho_cdm*(delta_phi - phi*delta_cdm)/phi/phi;
-        interaction_term = Q*phi_prime*delta_cdm/rho_cdm - Q*delta_phi_prime/rho_cdm - phi_prime*delta_Q/rho_cdm;
+        // interaction_term = Q*phi_prime*delta_cdm/rho_cdm - Q*delta_phi_prime/rho_cdm - phi_prime*delta_Q/rho_cdm; // Original equation
+        interaction_term = delta_phi_prime/phi - phi_prime*delta_phi/phi/phi;
       }
 
       if (ppt->gauge == newtonian) {
