@@ -2677,7 +2677,7 @@ int background_derivs(
     const double phi = y[pba->index_bi_phi_scf];
     const double phi_prime = y[pba->index_bi_phi_prime_scf];
     dy[pba->index_bi_phi_scf] = phi_prime/a/H;
-    dy[pba->index_bi_phi_prime_scf] = - 2*phi_prime - a*dV_scf(pba, phi)/H - a*pvecback[pba->index_bg_rho_cdm]/phi/H;
+    dy[pba->index_bi_phi_prime_scf] = - 2*phi_prime - a*dV_scf(pba, phi)/H - 3*a*pvecback[pba->index_bg_rho_cdm]/phi/H;
   }
   // JVR MOD END
 
