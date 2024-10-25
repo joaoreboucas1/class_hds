@@ -3915,7 +3915,10 @@ int perturbations_vector_init(
     /* cdm */
 
     class_define_index(ppv->index_pt_delta_cdm,pba->has_cdm,index_pt,1); /* cdm density */
-    class_define_index(ppv->index_pt_theta_cdm,pba->has_cdm && (ppt->gauge == newtonian),index_pt,1); /* cdm velocity */
+    // JVR MOD BEGIN: now, CDM has a velocity even in the synchronous gauge
+    // See equation 3.8b from https://arxiv.org/pdf/1501.03073
+    class_define_index(ppv->index_pt_theta_cdm,pba->has_cdm,index_pt,1); /* cdm velocity */
+    // JVR MOD END
 
     /* idm */
     class_define_index(ppv->index_pt_delta_idm,pba->has_idm,index_pt,1); /* idm density */
@@ -5435,7 +5438,9 @@ int perturbations_initial_conditions(struct precision * ppr,
 
       if (pba->has_cdm == _TRUE_) {
         ppw->pv->y[ppw->pv->index_pt_delta_cdm] = 3./4.*ppw->pv->y[ppw->pv->index_pt_delta_g]; /* cdm density */
-        /* cdm velocity vanishes in the synchronous gauge */
+        // JVR MOD begin: adding CDM velocity initial condition
+        ppw->pv->y[ppw->pv->index_pt_theta_cdm] = 0.0; /* cdm velocity */
+        // JVR MOD end
       }
 
       /* interacting dark matter */
@@ -5701,6 +5706,7 @@ int perturbations_initial_conditions(struct precision * ppr,
 
       delta_tot = (fracg*ppw->pv->y[ppw->pv->index_pt_delta_g]+fracnu*delta_ur+rho_m_over_rho_r*(fracb*ppw->pv->y[ppw->pv->index_pt_delta_b]+fraccdm*delta_cdm))/(1.+rho_m_over_rho_r);
 
+      // JVR MOD TODO: add theta_cdm here
       velocity_tot = ((4./3.)*(fracg*ppw->pv->y[ppw->pv->index_pt_theta_g]+fracnu*theta_ur) + rho_m_over_rho_r*fracb*ppw->pv->y[ppw->pv->index_pt_theta_b])/(1.+rho_m_over_rho_r);
 
       if (ppt->has_idm_dr == _TRUE_ ) {
@@ -5718,6 +5724,7 @@ int perturbations_initial_conditions(struct precision * ppr,
       ppw->pv->y[ppw->pv->index_pt_delta_b] -= 3.*a_prime_over_a*alpha;
       ppw->pv->y[ppw->pv->index_pt_theta_b] += k*k*alpha;
 
+      // JVR MOD TODO: changing variables from synchronous to newtonian
       if (pba->has_cdm == _TRUE_) {
         ppw->pv->y[ppw->pv->index_pt_delta_cdm] -= 3.*a_prime_over_a*alpha;
         ppw->pv->y[ppw->pv->index_pt_theta_cdm] = k*k*alpha;
@@ -6608,6 +6615,7 @@ int perturbations_einstein(
        really want gauge-dependent results) */
 
     if (ppt->has_source_delta_m == _TRUE_) {
+      // JVR MOD TODO: compute gauge-independent quantities
       ppw->delta_m += 3. *ppw->pvecback[pba->index_bg_a]*ppw->pvecback[pba->index_bg_H] * ppw->theta_m/k2;
       // note: until 2.4.3 there was a typo, the factor was (-2 H'/H) instead
       // of (3 aH). There is the same typo in the CLASSgal paper
@@ -7699,6 +7707,7 @@ int perturbations_sources(
     if (ppt->gauge == synchronous) {
 
       /* cdm is always on in synchronous gauge, see error message above that checks gauge and has_cdm */
+      // JVR MOD todo: evolution of the h pertrurbation equation
       if (ppt->has_source_h == _TRUE_)
         _set_source_(ppt->index_tp_h) = - 2 * y[ppw->pv->index_pt_delta_cdm];
 
@@ -8212,16 +8221,11 @@ int perturbations_print_variables(double tau,
       }
     }
 
-
     if (pba->has_cdm == _TRUE_) {
-
+      // JVR MOD begin: removing assumption of zero CDM velocity
       delta_cdm = y[ppw->pv->index_pt_delta_cdm];
-      if (ppt->gauge == synchronous) {
-        theta_cdm = 0.;
-      }
-      else {
-        theta_cdm = y[ppw->pv->index_pt_theta_cdm];
-      }
+      theta_cdm = y[ppw->pv->index_pt_theta_cdm];
+      // JVR MOD end
     }
 
     if (pba->has_idm == _TRUE_) {
@@ -9147,9 +9151,9 @@ int perturbations_derivs(double tau,
         dy[pv->index_pt_theta_cdm] = - a_prime_over_a*y[pv->index_pt_theta_cdm] + metric_euler + interaction_term_v; /* cdm velocity */ 
       }
 
-      /** - ----> synchronous gauge: cdm density only (velocity set to zero by definition of the gauge) */
       if (ppt->gauge == synchronous) {
         dy[pv->index_pt_delta_cdm] = -metric_continuity + interaction_term; /* cdm density */
+        dy[pv->index_pt_theta_cdm] = interaction_term_v; /* cdm velocity */ 
       }
     }
     // JVR MOD END
