@@ -9127,6 +9127,7 @@ int perturbations_derivs(double tau,
       /** - ----> newtonian gauge: cdm density and velocity */
       // JVR MOD BEGIN: adding interaction term
       double interaction_term = 0.0;
+      double interaction_term_v = 0.0;
       if (pba->has_scf == _TRUE_) {
         const double rho_cdm   = pvecback[pba->index_bg_rho_cdm];
         const double phi       = pvecback[pba->index_bg_phi_scf];
@@ -9136,18 +9137,17 @@ int perturbations_derivs(double tau,
         const double delta_phi = y[pv->index_pt_phi_scf];
         const double delta_phi_prime = y[pv->index_pt_phi_prime_scf];
         const double delta_Q = rho_cdm*(delta_phi - phi*delta_cdm)/phi/phi;
-        // interaction_term = Q*phi_prime*delta_cdm/rho_cdm - Q*delta_phi_prime/rho_cdm - phi_prime*delta_Q/rho_cdm; // Original equation
-        interaction_term = delta_phi_prime/phi - phi_prime*delta_phi/phi/phi;
+        interaction_term = Q*phi_prime*delta_cdm/rho_cdm - Q*delta_phi_prime/rho_cdm - phi_prime*delta_Q/rho_cdm; // Original equation
+        // interaction_term = delta_phi_prime/phi - phi_prime*delta_phi/phi/phi;
+        interaction_term_v = Q*phi_prime*y[pv->index_pt_theta_cdm]/rho_cdm - Q*k2*delta_phi/rho_cdm; // See equation 3.8b from https://arxiv.org/pdf/1501.03073
       }
 
       if (ppt->gauge == newtonian) {
         dy[pv->index_pt_delta_cdm] = -(y[pv->index_pt_theta_cdm]+metric_continuity) + interaction_term; /* cdm density */
-
-        dy[pv->index_pt_theta_cdm] = - a_prime_over_a*y[pv->index_pt_theta_cdm] + metric_euler; /* cdm velocity */
+        dy[pv->index_pt_theta_cdm] = - a_prime_over_a*y[pv->index_pt_theta_cdm] + metric_euler + interaction_term_v; /* cdm velocity */ 
       }
 
       /** - ----> synchronous gauge: cdm density only (velocity set to zero by definition of the gauge) */
-
       if (ppt->gauge == synchronous) {
         dy[pv->index_pt_delta_cdm] = -metric_continuity + interaction_term; /* cdm density */
       }
